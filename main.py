@@ -4,7 +4,7 @@ from tkinter import *
 from bs4 import BeautifulSoup
 import tkinter as tk
 import urllib
-import re
+import re, collections
 import pickle
 
 
@@ -109,13 +109,14 @@ trie = pickle.load(open( "save.p", "rb"))
 class EditDist:
 	def __init__(self):
 		pass
-	
+
+
 
 while True:
 
 	word= input("Enter the word:")
 	word=word.lower()
-	espeak.synth(word)
+	os.system('espeak -s 120 '+word)
 	if word=='exit':
 		break
 
@@ -166,7 +167,7 @@ while True:
 			difficulty=res[-1]
 			res=res[:-5]
 		except ValueError:
-			pass					
+			pass				
 		
 		for i in range(len(res)):
 			print(i,res[i])
@@ -176,11 +177,14 @@ while True:
 		
 	else:
 		print("Not Found\nDid You Mean:")
+		os.system("espeak -s 120 'Not Found. Did You Mean:'")
 		sugg=[]
-		trie.didUMean(word.lower(),sugg)
+		trie.didUMean(word,sugg)
 		sugg.sort(key = lambda s: len(s))
 		for words in sugg[:min(len(sugg),10)]:
 			print(words)
+			os.system('espeak -s 120 '+words)
+		
 
 root = Tk()
 entry = Entry(root, width=10)

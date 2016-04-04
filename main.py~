@@ -4,7 +4,7 @@ from tkinter import *
 from bs4 import BeautifulSoup
 import tkinter as tk
 import urllib
-import re
+import re, collections
 import pickle
 
 
@@ -109,13 +109,44 @@ trie = pickle.load(open( "save.p", "rb"))
 class EditDist:
 	def __init__(self):
 		pass
-	
+
+def words(text): return re.findall('[a-z]+', text.lower()) 
+
+def train():
+    model = collections.defaultdict(lambda: 1)
+    file = open('words.txt','r')
+    dict=file.readlines()  
+    
+    for f in dict:
+        model[f.lower()]+=1
+    return model
+
+NWORDS = train()
+
+alphabet = "abcdefghijklmnopqrstuvwxyz'"
+
+def edits1(word):
+   splits     = [(word[:i], word[i:]) for i in range(len(word) + 1)]
+   deletes    = [a + b[1:] for a, b in splits if b]
+   transposes = [a + b[1] + b[0] + b[2:] for a, b in splits if len(b)>1]
+   replaces   = [a + c + b[1:] for a, b in splits for c in alphabet if b]
+   inserts    = [a + c + b     for a, b in splits for c in alphabet]
+   return set(deletes + transposes + replaces + inserts)
+
+def known_edits2(word):
+    return set(e2 for e1 in edits1(word) for e2 in edits1(e1) if e2 in NWORDS)
+
+def known(words): return set(w for w in words if w in NWORDS)
+
+def correct(word):
+    candidates = known([word]) or known(edits1(word)) or known_edits2(word) or [word]
+    return max(candidates, key=NWORDS.get)	
 
 while True:
 
 	word= input("Enter the word:")
 	word=word.lower()
-	espeak.synth(word)
+	os.system('espeak -s 120 '+word)
 	if word=='exit':
 		break
 
@@ -164,9 +195,9 @@ while True:
 			
 		try:
 			difficulty=res[-1]
-			res=res[:-3]
+			res=res[:-5]
 		except ValueError:
-			pass					
+			pass				
 		
 		for i in range(len(res)):
 			print(i,res[i])
@@ -176,11 +207,14 @@ while True:
 		
 	else:
 		print("Not Found\nDid You Mean:")
+		os.system("espeak -s 120 'Not Found. Did You Mean:'")
 		sugg=[]
-		trie.didUMean(word.lower(),sugg)
+		trie.didUMean(word,sugg)
 		sugg.sort(key = lambda s: len(s))
 		for words in sugg[:min(len(sugg),10)]:
 			print(words)
+			os.system('espeak -s 120 '+words)
+		
 
 root = Tk()
 entry = Entry(root, width=10)
