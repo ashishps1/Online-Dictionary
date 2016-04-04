@@ -131,11 +131,42 @@ while True:
 		lines = (line.strip() for line in text.splitlines())
 		chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
 		res=[chunk for chunk in chunks if chunk]
-		res=res[:res.index('About')]
+
+		try:
+			res=res[res.index('Share')+1:]
+			res=res[res.index('Share')+1:]
+		except ValueError:
+			pass
 		
-		nearbyInd=res.index('Nearby words for '+word)
-		nearbyWords=res[nearbyInd:]
-		res=res[:nearbyInd]
+		try:
+			res=res[:res.index('About')]
+		except ValueError:
+			pass
+		
+		try:
+			nearbyInd=res.index('Nearby words for '+word)
+			nearbyWords=res[nearbyInd:]
+			res=res[:nearbyInd]
+		except ValueError:
+			pass	
+		
+		try:
+			relatedInd=res.index('Related Words')
+			relatedWords=res[relatedInd:]
+			res=res[:relatedInd]
+		except ValueError:
+			pass
+			
+		try:
+			res=res[:res.index('Word Value for '+word)]
+		except ValueError:
+			pass
+			
+		try:
+			difficulty=res[-1]
+			res=res[:-5]
+		except ValueError:
+			pass					
 		
 		for i in range(len(res)):
 			print(i,res[i])
