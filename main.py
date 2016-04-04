@@ -13,7 +13,6 @@ lis=list(lis)
 lis.append("'")
 
 class TrieNode:
-    # Initialize your data structure here.
     def __init__(self):
         self.val = None
         self.pointers={}
@@ -25,9 +24,6 @@ class Trie:
     def __init__(self):
         self.root = TrieNode()
 
-    # @param {string} word
-    # @return {void}
-    # Inserts a word into the trie.
     def insert(self, word):
         self.rec_insert(word, self.root)
         return
@@ -45,10 +41,6 @@ class Trie:
                 return
             return self.rec_insert(word[1:], nextNode)
 
-
-    # @param {string} word
-    # @return {boolean}
-    # Returns if the word is in the trie.
     def search(self, word):
         if len(word)==0:
             return False
@@ -66,10 +58,6 @@ class Trie:
                     return False
             return self.rec_search(word[1:],nextNode)
 
-
-    # @param {string} prefix
-    # @return {boolean}
-    # Returns if there is any word in the trie that starts with the given prefix.
     def startsWith(self, prefix):
         if len(prefix)==0:
             return True
@@ -79,7 +67,7 @@ class Trie:
         if word[:1] not in node.pointers:
             return False
         else:
-            if len(word[1:])==0:#still have remaining in the prefix
+            if len(word[1:])==0:
                 return True
             nextNode = node.pointers[word[:1]]
             return self.rec_search_prefix(word[1:],nextNode)
@@ -137,16 +125,11 @@ while True:
 		url=urllib.request.urlopen(urlStr)
 		content = url.read()
 		soup = BeautifulSoup(content)
-		# kill all script and style elements
 		for script in soup(["script", "style"]):
-		    script.extract()    # rip it out
-		# get text
+		    script.extract()
 		text = soup.get_text()
-		# break into lines and remove leading and trailing space on each
 		lines = (line.strip() for line in text.splitlines())
-		# break multi-headlines into a line each
 		chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
-		# drop blank lines
 		res=[chunk for chunk in chunks if chunk]
 		res=res[:res.index('About')]
 		
