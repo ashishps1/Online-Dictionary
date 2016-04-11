@@ -25,28 +25,28 @@ class Trie:
         self.root = TrieNode()
 
     def insert(self, word):
-        self.rec_insert(word, self.root)
+        self.recInsert(word, self.root)
         return
 
-    def rec_insert(self, word, node):
+    def recInsert(self, word, node):
         if word[:1] not in node.pointers:
             newNode=TrieNode()
             newNode.val=word[:1]
             node.pointers[word[:1]]=newNode
-            self.rec_insert(word, node)
+            self.recInsert(word, node)
         else:
             nextNode = node.pointers[word[:1]]
             if len(word[1:])==0:
                 node.end=1
                 return
-            return self.rec_insert(word[1:], nextNode)
+            return self.recInsert(word[1:], nextNode)
 
     def search(self, word):
         if len(word)==0:
             return False
-        return self.rec_search(word,self.root)
+        return self.recSearch(word,self.root)
 
-    def rec_search(self, word, node):
+    def recSearch(self, word, node):
         if word[:1] not in node.pointers:
             return False
         else:
@@ -56,21 +56,21 @@ class Trie:
                     return True
                 else:
                     return False
-            return self.rec_search(word[1:],nextNode)
+            return self.recSearch(word[1:],nextNode)
 
     def startsWith(self, prefix):
         if len(prefix)==0:
             return True
-        return self.rec_search_prefix(prefix,self.root)
+        return self.recSearchPrefix(prefix,self.root)
 
-    def rec_search_prefix(self, word, node):
+    def recSearchPrefix(self, word, node):
         if word[:1] not in node.pointers:
             return False
         else:
             if len(word[1:])==0:
                 return True
             nextNode = node.pointers[word[:1]]
-            return self.rec_search_prefix(word[1:],nextNode)
+            return self.recSearchPrefix(word[1:],nextNode)
             
     
     def findAll(self,node,word,sugg):
@@ -104,52 +104,17 @@ file.close()
 pickle.dump(trie,open("save.p", "wb"))
 '''
 
+
 trie = pickle.load(open( "save.p", "rb"))
 
 class EditDist:
 	def __init__(self):
 		pass
 
-def words(text): return re.findall('[a-z]+', text.lower()) 
 
-def train():
-    model = collections.defaultdict(lambda: 1)
-    file = open('words.txt','r')
-    dict=file.readlines()  
-    
-    for f in dict:
-        model[f.lower()]+=1
-    return model
-
-NWORDS = train()
-
-alphabet = "abcdefghijklmnopqrstuvwxyz'"
-
-def edits1(word):
-   splits     = [(word[:i], word[i:]) for i in range(len(word) + 1)]
-   deletes    = [a + b[1:] for a, b in splits if b]
-   transposes = [a + b[1] + b[0] + b[2:] for a, b in splits if len(b)>1]
-   replaces   = [a + c + b[1:] for a, b in splits for c in alphabet if b]
-   inserts    = [a + c + b     for a, b in splits for c in alphabet]
-   return set(deletes + transposes + replaces + inserts)
-
-def known_edits2(word):
-    return set(e2 for e1 in edits1(word) for e2 in edits1(e1) if e2 in NWORDS)
-
-def known(words): return set(w for w in words if w in NWORDS)
-
-def correct(word):
-    candidates = known([word]) or known(edits1(word)) or known_edits2(word) or [word]
-    return max(candidates, key=NWORDS.get)	
-
-while True:
-
-	word= input("Enter the word:")
-	word=word.lower()
+def util(word):
 	os.system('espeak -s 120 '+word)
-	if word=='exit':
-		break
-
+	word=word.lower()
 	if trie.search(word):
 		print("Found")
 		urlStr='http://www.dictionary.com/browse/'+word+'?s=t'
@@ -168,57 +133,76 @@ while True:
 			res=res[res.index('Share')+1:]
 		except ValueError:
 			pass
-		
+	
 		try:
 			res=res[:res.index('About')]
 		except ValueError:
 			pass
-		
+	
 		try:
 			nearbyInd=res.index('Nearby words for '+word)
 			nearbyWords=res[nearbyInd:]
 			res=res[:nearbyInd]
 		except ValueError:
 			pass	
-		
+	
 		try:
 			relatedInd=res.index('Related Words')
 			relatedWords=res[relatedInd:]
 			res=res[:relatedInd]
 		except ValueError:
 			pass
-			
+		
 		try:
 			res=res[:res.index('Word Value for '+word)]
 		except ValueError:
 			pass
-			
+		
 		try:
 			difficulty=res[-1]
 			res=res[:-5]
 		except ValueError:
 			pass				
-		
+	
 		for i in range(len(res)):
 			print(i,res[i])
-		text = '\n'.join(chunk for chunk in chunks if chunk)
+		text = '\n'.join(chunk for chunk in res)
 
 		#print(text)
-		
+	
 	else:
 		print("Not Found\nDid You Mean:")
 		os.system("espeak -s 120 'Not Found. Did You Mean:'")
 		sugg=[]
 		trie.didUMean(word,sugg)
 		sugg.sort(key = lambda s: len(s))
-		for words in sugg[:min(len(sugg),10)]:
-			print(words)
-			os.system('espeak -s 120 '+words)
+		text = '\n'.join(chunk for chunk in sugg[:min(len(sugg),10)])
 		
+	return text
 
-root = Tk()
-entry = Entry(root, width=10)
-entry.pack()
-soundIcon = PhotoImage(file='soundIcon.png')
-root.mainloop()
+def showSearchResults():
+	key=entry.get()
+	#content_text.delete('1.0', END)
+	text=util(key)
+	content_text.insert('1.0',text)
+
+if __name__ == '__main__':
+	PROGRAM_NAME="Dictionary"
+
+	root = Tk()
+	root.geometry('500x500')
+	root.title(PROGRAM_NAME)
+	entry = Entry(root, width=10)       
+	entry.pack()
+	button = Button(root, text='Search', width=25, command=showSearchResults)
+	button.pack()
+
+	content_text = Text(root, wrap='word')
+	content_text.pack(expand='yes', fill='both')
+	scroll_bar = Scrollbar(content_text)
+	content_text.configure(yscrollcommand=scroll_bar.set)
+	scroll_bar.config(command=content_text.yview)
+	scroll_bar.pack(side='right', fill='y')
+
+	root.mainloop()
       
