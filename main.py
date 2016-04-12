@@ -1,7 +1,7 @@
 import os
 from espeak import espeak
 from tkinter import *
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup,SoupStrainer
 import tkinter as tk
 import urllib
 import re, collections
@@ -159,54 +159,29 @@ def util(word):
 		url=urllib.request.urlopen(urlStr)
 		content = url.read()
 		soup = BeautifulSoup(content)
-		for script in soup(["script", "style"]):
-		    script.extract()
-		text = soup.get_text()
-		lines = (line.strip() for line in text.splitlines())
-		chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
-		res=[chunk for chunk in chunks if chunk]
+	
+		product = SoupStrainer('section',{'class': 'def-pbk ce-spot'})
 
-		try:
-			res=res[res.index('Share')+1:]
-			res=res[res.index('Share')+1:]
-		except ValueError:
-			pass
+		main=[p.get_text(strip=True) for p in soup.find_all(product)]
+
+		for item in main:
+			sep=re.split('(\d+)\.',item)
+			for th in sep:
+				print(th)
+			print()
 	
-		try:
-			res=res[:res.index('About')]
-		except ValueError:
-			pass
+		chunks=[phrase for item in main for phrase in re.split('(\d+)\.',item)]
 	
-		try:
-			nearbyInd=res.index('Nearby words for '+word)
-			nearbyWords=res[nearbyInd:]
-			res=res[:nearbyInd]
-		except ValueError:
-			pass	
-	
-		try:
-			relatedInd=res.index('Related Words')
-			relatedWords=res[relatedInd:]
-			res=res[:relatedInd]
-		except ValueError:
-			pass
-		
-		try:
-			res=res[:res.index('Word Value for '+word)]
-		except ValueError:
-			pass
-		
-		try:
-			difficulty=res[-1]
-			res=res[:-5]
-		except ValueError:
-			pass				
-	
+		res=[chunk for chunk in chunks if chunk]
+			
+		'''
 		for i in range(len(res)):
 			print(i,res[i])
+		'''		
+		
 		text = '\n'.join(chunk for chunk in res)
+		return text
 
-		#print(text)
 	
 	else:
 		print("Not Found\nDid You Mean:")
@@ -219,8 +194,7 @@ def util(word):
 		else:
 			sugg=ed.correct(word)		
 		text = '\n'.join(chunk for chunk in sugg[:min(len(sugg),10)]) 
-		
-	return text
+		return text
 	
 	
 def showSearchResults():
