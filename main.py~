@@ -6,6 +6,7 @@ import tkinter as tk
 import urllib
 import re, collections
 import pickle
+import nltk
 
 
 lis=map(chr,range(97,123))
@@ -111,9 +112,10 @@ trie = pickle.load(open( "save.p", "rb"))
 def train(features):
 	model = collections.defaultdict(lambda: 1)
 	for f in features:
-		model[f] += 1
+		if model[f]>1 or trie.search(f):
+			model[f]+=1
 	return model
-		
+			
 def words(text): 
 	return re.findall('[a-z]+', text.lower()) 
 
@@ -128,20 +130,27 @@ class EditDist:
 
 	def edits1(self,word):
 	   splits     = [(word[:i], word[i:]) for i in range(len(word) + 1)]
-	   deletes    = [a + b[1:] for a, b in splits if b]
-	   transposes = [a + b[1] + b[0] + b[2:] for a, b in splits if len(b)>1]
-	   replaces   = [a + c + b[1:] for a, b in splits for c in self.alphabet if b]
-	   inserts    = [a + c + b     for a, b in splits for c in self.alphabet]
+	   deletes    = [a + b[1:] for a, b in splits if b and trie.search(a+b[1:])]
+	   transposes = [a + b[1] + b[0] + b[2:] for a, b in splits if len(b)>1 and trie.search(a+b[1]+b[0]+b[2:])]
+	   replaces   = [a + c + b[1:] for a, b in splits for c in self.alphabet if b and trie.search(a+c+b[1:])]
+	   inserts    = [a + c + b  for a, b in splits for c in self.alphabet if trie.search(a+c+b)]
 	   return set(deletes + transposes + replaces + inserts)
 
-	def known_edits2(self,word):
-	    return set(e2 for e1 in self.edits1(word) for e2 in self.edits1(e1) if e2 in NWORDS)
+	def knownEdits2(self,word):
+	    return set(e2 for e1 in self.edits1(word) for e2 in self.edits1(e1) if trie.search(e2))
 
-	def known(self,words): return set(w for w in words if w in NWORDS)
+	def known(self,words):
+		return set(w for w in words if w in NWORDS)
 
 	def correct(self,word):
-	    candidates = self.known([word]) or self.known(self.edits1(word)) or self.known_edits2(word) or [word]
-	    return max(candidates, key=NWORDS.get)	
+	    candidates = self.known([word]) or self.known(self.edits1(word)) or self.knownEdits2(word) or [word]
+	    sugg=list(candidates)
+	    sugg.sort(key = lambda s: nltk.edit_distance(word,s))
+	    for i in range(len(sugg)):
+	    	print(sugg[i],nltk.edit_distance(word,sugg[i]))
+	    
+	    #return sugg[:min(len(sugg),10)]
+	    return []	
 
 
 def util(word):
@@ -204,23 +213,23 @@ def util(word):
 	
 	else:
 		print("Not Found\nDid You Mean:")
-		os.system("espeak -s 120 'Not Found. Did You Mean:'")
+		#os.system("espeak -s 120 'Not Found. Did You Mean:'")
 		ed=EditDist()
-		
-		if ed.correct(word)!=word:
-			return ed.correct(word)
-		
 		sugg=[]
 		trie.didUMean(word,sugg)
-		sugg.sort(key = lambda s: len(s))
-		text = '\n'.join(chunk for chunk in sugg[:min(len(sugg),10)])
+		if len(sugg)!=0:
+			sugg.sort(key = lambda s: len(s))
+		else:
+			sugg=ed.correct(word)		
+		text = '\n'.join(chunk for chunk in sugg[:min(len(sugg),10)]) 
 		
 	return text
-
+	
+	
 def showSearchResults():
 	key=entry.get()
 	text=util(key)
-	content_text.insert('1.0',text)
+	content_text.insert('0.0',text)
 
 if __name__ == '__main__':
 	PROGRAM_NAME="Dictionary"
@@ -241,4 +250,3 @@ if __name__ == '__main__':
 	scroll_bar.pack(side='right', fill='y')
 
 	root.mainloop()
-      

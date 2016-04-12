@@ -1,113 +1,153 @@
+#!/usr/bin/env python
+# encoding: utf-8
+"""
+tkentrycomplete.py
+
+A tkinter widget that features autocompletion.
+
+Created by Mitja Martini on 2008-11-29.
+Updated by Russell Adams, 2011/01/24 to support Python 3 and Combobox.
+   Licensed same as original (not specified?), or public domain, whichever is less restrictive.
+"""
+import sys
 import os
-from espeak import espeak
-from tkinter import *
-import tkinter as tk
-import urllib
-import re
-import pickle
+import tkinter
+import tkinter.ttk
 
-class TrieNode:
-    # Initialize your data structure here.
-    def __init__(self):
-        self.val = None
-        self.pointers={}
-        self.end=0
+__version__ = "1.1"
 
+# I may have broken the unicode...
+tkinter_umlauts=['odiaeresis', 'adiaeresis', 'udiaeresis', 'Odiaeresis', 'Adiaeresis', 'Udiaeresis', 'ssharp']
 
-class Trie:
+class AutocompleteEntry(tkinter.Entry):
+        """
+        Subclass of Tkinter.Entry that features autocompletion.
 
-    def __init__(self):
-        self.root = TrieNode()
+        To enable autocompletion use set_completion_list(list) to define
+        a list of possible strings to hit.
+        To cycle through hits use down and up arrow keys.
+        """
+        def set_completion_list(self, completion_list):
+                self._completion_list = sorted(completion_list, key=str.lower) # Work with a sorted list
+                self._hits = []
+                self._hit_index = 0
+                self.position = 0
+                self.bind('<KeyRelease>', self.handle_keyrelease)
 
-    # @param {string} word
-    # @return {void}
-    # Inserts a word into the trie.
-    def insert(self, word):
-        self.rec_insert(word, self.root)
-        return
+        def autocomplete(self, delta=0):
+                """autocomplete the Entry, delta may be 0/1/-1 to cycle through possible hits"""
+                if delta: # need to delete selection otherwise we would fix the current position
+                        self.delete(self.position, tkinter.END)
+                else: # set position to end so selection starts where textentry ended
+                        self.position = len(self.get())
+                # collect hits
+                _hits = []
+                for element in self._completion_list:
+                        if element.lower().startswith(self.get().lower()):  # Match case-insensitively
+                                _hits.append(element)
+                # if we have a new hit list, keep this in mind
+                if _hits != self._hits:
+                        self._hit_index = 0
+                        self._hits=_hits
+                # only allow cycling if we are in a known hit list
+                if _hits == self._hits and self._hits:
+                        self._hit_index = (self._hit_index + delta) % len(self._hits)
+                # now finally perform the auto completion
+                if self._hits:
+                        self.delete(0,tkinter.END)
+                        self.insert(0,self._hits[self._hit_index])
+                        self.select_range(self.position,tkinter.END)
 
-    def rec_insert(self, word, node):
-        if word[:1] not in node.pointers:
-            newNode=TrieNode()
-            newNode.val=word[:1]
-            node.pointers[word[:1]]=newNode
-            self.rec_insert(word, node)
-        else:
-            nextNode = node.pointers[word[:1]]
-            if len(word[1:])==0:
-                node.end=1
-                return
-            return self.rec_insert(word[1:], nextNode)
+        def handle_keyrelease(self, event):
+                """event handler for the keyrelease event on this widget"""
+                if event.keysym == "BackSpace":
+                        self.delete(self.index(tkinter.INSERT), tkinter.END)
+                        self.position = self.index(tkinter.END)
+                if event.keysym == "Left":
+                        if self.position < self.index(tkinter.END): # delete the selection
+                                self.delete(self.position, tkinter.END)
+                        else:
+                                self.position = self.position-1 # delete one character
+                                self.delete(self.position, tkinter.END)
+                if event.keysym == "Right":
+                        self.position = self.index(tkinter.END) # go to end (no selection)
+                if event.keysym == "Down":
+                        self.autocomplete(1) # cycle to next hit
+                if event.keysym == "Up":
+                        self.autocomplete(-1) # cycle to previous hit
+                if len(event.keysym) == 1 or event.keysym in tkinter_umlauts:
+                        self.autocomplete()
 
+class AutocompleteCombobox(tkinter.ttk.Combobox):
 
-    # @param {string} word
-    # @return {boolean}
-    # Returns if the word is in the trie.
-    def search(self, word):
-        if len(word)==0:
-            return False
-        return self.rec_search(word,self.root)
+        def set_completion_list(self, completion_list):
+                """Use our completion list as our drop down selection menu, arrows move through menu."""
+                self._completion_list = sorted(completion_list, key=str.lower) # Work with a sorted list
+                self._hits = []
+                self._hit_index = 0
+                self.position = 0
+                self.bind('<KeyRelease>', self.handle_keyrelease)
+                self['values'] = self._completion_list  # Setup our popup menu
 
-    def rec_search(self, word, node):
-        if word[:1] not in node.pointers:
-            return False
-        else:
-            nextNode = node.pointers[word[:1]]
-            if len(word[1:])==0:
-                if nextNode.end == 1:
-                    return True
-                else:
-                    return False
-            return self.rec_search(word[1:],nextNode)
+        def autocomplete(self, delta=0):
+                """autocomplete the Combobox, delta may be 0/1/-1 to cycle through possible hits"""
+                if delta: # need to delete selection otherwise we would fix the current position
+                        self.delete(self.position, tkinter.END)
+                else: # set position to end so selection starts where textentry ended
+                        self.position = len(self.get())
+                # collect hits
+                _hits = []
+                for element in self._completion_list:
+                        if element.lower().startswith(self.get().lower()): # Match case insensitively
+                                _hits.append(element)
+                # if we have a new hit list, keep this in mind
+                if _hits != self._hits:
+                        self._hit_index = 0
+                        self._hits=_hits
+                # only allow cycling if we are in a known hit list
+                if _hits == self._hits and self._hits:
+                        self._hit_index = (self._hit_index + delta) % len(self._hits)
+                # now finally perform the auto completion
+                if self._hits:
+                        self.delete(0,tkinter.END)
+                        self.insert(0,self._hits[self._hit_index])
+                        self.select_range(self.position,tkinter.END)
 
+        def handle_keyrelease(self, event):
+                """event handler for the keyrelease event on this widget"""
+                if event.keysym == "BackSpace":
+                        self.delete(self.index(tkinter.INSERT), tkinter.END)
+                        self.position = self.index(tkinter.END)
+                if event.keysym == "Left":
+                        if self.position < self.index(tkinter.END): # delete the selection
+                                self.delete(self.position, tkinter.END)
+                        else:
+                                self.position = self.position-1 # delete one character
+                                self.delete(self.position, tkinter.END)
+                if event.keysym == "Right":
+                        self.position = self.index(tkinter.END) # go to end (no selection)
+                if len(event.keysym) == 1:
+                        self.autocomplete()
+                # No need for up/down, we'll jump to the popup
+                # list at the position of the autocompletion
 
-    # @param {string} prefix
-    # @return {boolean}
-    # Returns if there is any word in the trie that starts with the given prefix.
-    def startsWith(self, prefix):
-        if len(prefix)==0:
-            return True
-        return self.rec_search_prefix(prefix,self.root)
+def test(test_list):
+        """Run a mini application to test the AutocompleteEntry Widget."""
+        root = tkinter.Tk(className=' AutocompleteEntry demo')
+        entry = AutocompleteEntry(root)
+        entry.set_completion_list(test_list)
+        entry.pack()
+        entry.focus_set()
+        combo = AutocompleteCombobox(root)
+        combo.set_completion_list(test_list)
+        combo.pack()
+        combo.focus_set()
+        # I used a tiling WM with no controls, added a shortcut to quit
+        root.bind('<Control-Q>', lambda event=None: root.destroy())
+        root.bind('<Control-q>', lambda event=None: root.destroy())
+        root.mainloop()
 
-    def rec_search_prefix(self, word, node):
-        if word[:1] not in node.pointers:
-            return False
-        else:
-            if len(word[1:])==0:#still have remaining in the prefix
-                return True
-            nextNode = node.pointers[word[:1]]
-            return self.rec_search_prefix(word[1:],nextNode)
-            
+if __name__ == '__main__':
+        test_list = ('apple', 'banana', 'CranBerry', 'dogwood', 'alpha', 'Acorn', 'Anise' )
+        test(test_list)
 
-
-'''
-trie=Trie()
-
-file = open('words.txt','r')
-dict=file.readlines()
-for words in dict:
-	trie.insert(words.lower())
-file.close()
-
-pickle.dump(trie,open("save.p", "wb"))
-'''
-
-
-trie = pickle.load(open( "save.p", "rb"))
-
-while True:
-
-	word= input("Enter the word:")
-	espeak.synth(word)
-	if word=='exit':
-		break
-
-	if trie.search(word.lower()):
-		print("Found")
-	else:
-		print("Not Found")
-
-root = Tk()
-
-root.mainloop()
-      

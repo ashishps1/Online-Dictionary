@@ -1,176 +1,93 @@
-import os
-from espeak import espeak
 from tkinter import *
-from bs4 import BeautifulSoup
-import tkinter as tk
-import urllib
 import re
-import pickle
+
+lista = ['a', 'actions', 'additional', 'also', 'an', 'and', 'angle', 'are', 'as', 'be', 'bind', 'bracket', 'brackets', 'button', 'can', 'cases', 'configure', 'course', 'detail', 'enter', 'event', 'events', 'example', 'field', 'fields', 'for', 'give', 'important', 'in', 'information', 'is', 'it', 'just', 'key', 'keyboard', 'kind', 'leave', 'left', 'like', 'manager', 'many', 'match', 'modifier', 'most', 'of', 'or', 'others', 'out', 'part', 'simplify', 'space', 'specifier', 'specifies', 'string;', 'that', 'the', 'there', 'to', 'type', 'unless', 'use', 'used', 'user', 'various', 'ways', 'we', 'window', 'wish', 'you']
 
 
-lis=map(chr,range(97,123))
-lis=list(lis)
-lis.append("'")
+class AutocompleteEntry(Entry):
+    def __init__(self, lista, *args, **kwargs):
+        
+        Entry.__init__(self, *args, **kwargs)
+        self.lista = lista        
+        self.var = self["textvariable"]
+        if self.var == '':
+            self.var = self["textvariable"] = StringVar()
 
-class TrieNode:
-    # Initialize your data structure here.
-    def __init__(self):
-        self.val = None
-        self.pointers={}
-        self.end=0
+        self.var.trace('w', self.changed)
+        self.bind("<Right>", self.selection)
+        self.bind("<Up>", self.up)
+        self.bind("<Down>", self.down)
+        
+        self.lb_up = False
 
+    def changed(self, name, index, mode):  
 
-class Trie:
-
-    def __init__(self):
-        self.root = TrieNode()
-
-    # @param {string} word
-    # @return {void}
-    # Inserts a word into the trie.
-    def insert(self, word):
-        self.rec_insert(word, self.root)
-        return
-
-    def rec_insert(self, word, node):
-        if word[:1] not in node.pointers:
-            newNode=TrieNode()
-            newNode.val=word[:1]
-            node.pointers[word[:1]]=newNode
-            self.rec_insert(word, node)
+        if self.var.get() == '':
+            self.lb.destroy()
+            self.lb_up = False
         else:
-            nextNode = node.pointers[word[:1]]
-            if len(word[1:])==0:
-                node.end=1
-                return
-            return self.rec_insert(word[1:], nextNode)
+            words = self.comparison()
+            if words:            
+                if not self.lb_up:
+                    self.lb = Listbox()
+                    self.lb.bind("<Double-Button-1>", self.selection)
+                    self.lb.bind("<Right>", self.selection)
+                    self.lb.place(x=self.winfo_x(), y=self.winfo_y()+self.winfo_height())
+                    self.lb_up = True
+                
+                self.lb.delete(0, END)
+                for w in words:
+                    self.lb.insert(END,w)
+            else:
+                if self.lb_up:
+                    self.lb.destroy()
+                    self.lb_up = False
+        
+    def selection(self, event):
 
+        if self.lb_up:
+            self.var.set(self.lb.get(ACTIVE))
+            self.lb.destroy()
+            self.lb_up = False
+            self.icursor(END)
 
-    # @param {string} word
-    # @return {boolean}
-    # Returns if the word is in the trie.
-    def search(self, word):
-        if len(word)==0:
-            return False
-        return self.rec_search(word,self.root)
+    def up(self, event):
 
-    def rec_search(self, word, node):
-        if word[:1] not in node.pointers:
-            return False
-        else:
-            nextNode = node.pointers[word[:1]]
-            if len(word[1:])==0:
-                if nextNode.end == 1:
-                    return True
-                else:
-                    return False
-            return self.rec_search(word[1:],nextNode)
+        if self.lb_up:
+            if self.lb.curselection() == ():
+                index = '0'
+            else:
+                index = self.lb.curselection()[0]
+            if index != '0':                
+                self.lb.selection_clear(first=index)
+                index = str(int(index)-1)                
+                self.lb.selection_set(first=index)
+                self.lb.activate(index) 
 
+    def down(self, event):
 
-    # @param {string} prefix
-    # @return {boolean}
-    # Returns if there is any word in the trie that starts with the given prefix.
-    def startsWith(self, prefix):
-        if len(prefix)==0:
-            return True
-        return self.rec_search_prefix(prefix,self.root)
+        if self.lb_up:
+            if self.lb.curselection() == ():
+                index = '0'
+            else:
+                index = self.lb.curselection()[0]
+            if index != END:                        
+                self.lb.selection_clear(first=index)
+                index = str(int(index)+1)        
+                self.lb.selection_set(first=index)
+                self.lb.activate(index) 
 
-    def rec_search_prefix(self, word, node):
-        if word[:1] not in node.pointers:
-            return False
-        else:
-            if len(word[1:])==0:#still have remaining in the prefix
-                return True
-            nextNode = node.pointers[word[:1]]
-            return self.rec_search_prefix(word[1:],nextNode)
-            
-    
-    def findAll(self,node,word,sugg):
-    	for c in lis:
-    		if c in node.pointers:
-    			if node.pointers[c].end==1:
-    				sugg.append(word+str(c))
-    			self.findAll(node.pointers[c],word+str(c),sugg)
-    	return
-    	        
+    def comparison(self):
+        pattern = re.compile('.*' + self.var.get() + '.*')
+        return [w for w in self.lista if re.match(pattern, w)]
 
-    def didUMean(self,word,sugg):
-    	if self.startsWith(word):
-    		top=self.root
-    		for c in word:
-    			top=top.pointers[c]
-    		self.findAll(top,word,sugg)
-    	else:
-    		return
-    	         
+if __name__ == '__main__':
+    root = Tk()
 
-'''
-trie=Trie()
+    entry = AutocompleteEntry(lista, root)
+    entry.grid(row=0, column=0)
+    Button(text='nothing').grid(row=1, column=0)
+    Button(text='nothing').grid(row=2, column=0)
+    Button(text='nothing').grid(row=3, column=0)
 
-file = open('words.txt','r')
-dict=file.readlines()
-for words in dict:
-	trie.insert(words.lower())
-file.close()
-
-pickle.dump(trie,open("save.p", "wb"))
-'''
-
-trie = pickle.load(open( "save.p", "rb"))
-
-class EditDist:
-	def __init__(self):
-		pass
-	
-
-while True:
-
-	word= input("Enter the word:")
-	word=word.lower()
-	espeak.synth(word)
-	if word=='exit':
-		break
-
-	if trie.search(word):
-		print("Found")
-		urlStr='http://www.dictionary.com/browse/'+word+'?s=t'
-		url=urllib.request.urlopen(urlStr)
-		content = url.read()
-		soup = BeautifulSoup(content)
-		# kill all script and style elements
-		for script in soup(["script", "style"]):
-		    script.extract()    # rip it out
-		# get text
-		text = soup.get_text()
-		# break into lines and remove leading and trailing space on each
-		lines = (line.strip() for line in text.splitlines())
-		# break multi-headlines into a line each
-		chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
-		# drop blank lines
-		res=[chunk for chunk in chunks if chunk]
-		res=res[:res.index('About')]
-		
-		nearbyInd=res.index('Nearby words for '+word)
-		nearbyWords=res[nearbyInd:]
-		res=res[:nearbyInd]
-		
-		for i in range(len(res)):
-			print(i,res[i])
-		text = '\n'.join(chunk for chunk in chunks if chunk)
-
-		#print(text)
-		
-	else:
-		print("Not Found\nDid You Mean:")
-		sugg=[]
-		trie.didUMean(word.lower(),sugg)
-		sugg.sort(key = lambda s: len(s))
-		for words in sugg[:min(len(sugg),10)]:
-			print(words)
-
-root = Tk()
-entry = Entry(root, width=10)
-entry.pack()
-soundIcon = PhotoImage(file='soundIcon.png')
-root.mainloop()
-      
+    root.mainloop()
