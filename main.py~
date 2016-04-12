@@ -206,6 +206,8 @@ if __name__ == '__main__':
 	PROGRAM_NAME="Dictionary"
 
 	root = Tk()
+	#root.iconbitmap('@icons/dict.ico')
+	root.wm_iconbitmap('@dict.ico')
 	root.geometry('500x500')
 	root.title(PROGRAM_NAME)
 	entry = Entry(root, width=10)       
