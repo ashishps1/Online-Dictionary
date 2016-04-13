@@ -178,7 +178,6 @@ def util(word):
 		for i in range(len(res)):
 			print(i,res[i])
 		'''		
-		
 		text = '\n'.join(chunk for chunk in res)
 		return text
 
@@ -189,13 +188,96 @@ def util(word):
 		ed=EditDist()
 		sugg=[]
 		trie.didUMean(word,sugg)
+		
 		if len(sugg)!=0:
 			sugg.sort(key = lambda s: len(s))
 		else:
-			sugg=ed.correct(word)		
+			sugg=ed.correct(word)
+					
 		text = '\n'.join(chunk for chunk in sugg[:min(len(sugg),10)]) 
 		return text
 	
+	
+class AutocompleteEntry(Entry):
+	def __init__(self,*args, **kwargs):
+		Entry.__init__(self, *args, **kwargs)  
+		self.var = self["textvariable"]
+		if self.var == '':
+			self.var = self["textvariable"] = StringVar()
+
+		self.var.trace('w', self.changed)
+		self.bind("<Right>", self.selection)
+		self.bind("<Up>", self.up)
+		self.bind("<Down>", self.down)
+
+		self.lb_up = False
+
+	def changed(self, name, index, mode):  
+		if self.var.get() == '':
+			self.lb.destroy()
+			self.lb_up = False
+		else:
+			words = self.comparison()
+			if words:            
+				if not self.lb_up:
+					self.lb = Listbox()
+					self.lb.bind("<Double-Button-1>", self.selection)
+					self.lb.bind("<Right>", self.selection)
+					self.lb.place(x=self.winfo_x(), y=self.winfo_y()+self.winfo_height())
+					self.lb_up = True
+
+				self.lb.delete(0, END)
+				for w in words:
+					self.lb.insert(END,w)
+			else:
+				if self.lb_up:
+					self.lb.destroy()
+					self.lb_up = False
+        
+	def selection(self, event):
+		if self.lb_up:
+			self.var.set(self.lb.get(ACTIVE))
+			self.lb.destroy()
+			self.lb_up = False
+			self.icursor(END)
+
+	def up(self, event):
+		if self.lb_up:
+			if self.lb.curselection() == ():
+				index = '0'
+			else:
+				index = self.lb.curselection()[0]
+			if index != '0':                
+				self.lb.selection_clear(first=index)
+				index = str(int(index)-1)                
+				self.lb.selection_set(first=index)
+				self.lb.activate(index) 
+
+	def down(self, event):
+		if self.lb_up:
+			if self.lb.curselection() == ():
+				index = '0'
+			else:
+				index = self.lb.curselection()[0]
+			if index != END:                        
+				self.lb.selection_clear(first=index)
+				index = str(int(index)+1)        
+				self.lb.selection_set(first=index)
+				self.lb.activate(index) 
+
+	def comparison(self):
+		word=self.var.get()
+		word=word.lower()
+		ed=EditDist()
+		sugg=[]
+		trie.didUMean(word,sugg)
+		if len(sugg)!=0:
+			sugg.sort(key = lambda s: len(s))
+		else:
+			sugg=ed.correct(word)
+		res=[chunk for chunk in sugg[:min(len(sugg),10)]]		
+		
+		return res	
 	
 def showSearchResults():
 	key=entry.get()
@@ -209,7 +291,7 @@ if __name__ == '__main__':
 	#root.iconbitmap('@icons/dict.ico')
 	root.geometry('500x500')
 	root.title(PROGRAM_NAME)
-	entry = Entry(root, width=10)       
+	entry = AutocompleteEntry(root)   
 	entry.pack()
 	button = Button(root, text='Search', width=25, command=showSearchResults)
 	button.pack()
