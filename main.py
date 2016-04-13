@@ -295,6 +295,7 @@ if __name__ == '__main__':
 	entry.pack()
 	button = Button(root, text='Search', width=25, command=showSearchResults)
 	button.pack()
+	entry.focus()
 
 	content_text = Text(root, wrap='word')
 	content_text.pack(expand='yes', fill='both')
