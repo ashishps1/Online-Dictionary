@@ -2,6 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
+      <module fileurl="file://$PROJECT_DIR$/../../../Pycharm/GUI/.idea/GUI.iml" filepath="$PROJECT_DIR$/../../../Pycharm/GUI/.idea/GUI.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/dictWords.iml" filepath="$PROJECT_DIR$/.idea/dictWords.iml" />
     </modules>
   </component>
